@@ -9,8 +9,3 @@ class BaseArchive(models.AbstractModel):
         for record in self:
             record.active = not record.active
 
-
-"""
-Khi tách ra file mới ntn thì kế thừa bị lỗi :
-TypeError: Model 'library.book' inherits from non-existing model 'base.archive'.
-"""

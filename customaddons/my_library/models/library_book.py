@@ -1,12 +1,13 @@
 from odoo import models, fields, api
 from datetime import timedelta
-
+from odoo.exceptions import UserError
+from odoo.tools.translate import _
 
 class LibraryBook(models.Model):
     _name = 'library.book'
     _description = 'Library Book'  # Mo ta
     _inherit = 'base.archive'
-    _order = 'date_release desc, name'  # Sap xep record , desc : giam dan
+    #_order = 'date_release desc, name'  # Sap xep record , desc : giam dan
     _rec_name = 'short_name'  # Ten dai dien , vd (default) book/1 => book/short_name
     _sql_constraints = [  # Rang buoc csdl
         ('name_uniq', 'UNIQUE (name)',
@@ -18,11 +19,6 @@ class LibraryBook(models.Model):
     name = fields.Char('Title', required=True)
     short_name = fields.Char('Short Title', translate=True, index=True)
     notes = fields.Text('Internal Notes')
-    state = fields.Selection(
-        [('draft', 'Not Available'),
-         ('available', 'Available'),
-         ('lost', 'Lost')],
-        'State', default="draft")
     description = fields.Html('Description', sanitize=True, strip_style=False)
     cover = fields.Binary('Book Cover')
     out_of_print = fields.Boolean('Out of Print?')
@@ -66,12 +62,25 @@ class LibraryBook(models.Model):
         selection='_referencable_models',
         string='Reference Document')
 
+    state = fields.Selection([
+        ('draft', 'Unavailable'),
+        ('available', 'Available'),
+        ('borrowed', 'Borrowed'),
+        ('lost', 'Lost')],
+        'State', default="draft")
+    manager_remarks = fields.Text('Manager Remarks')
+    isbn = fields.Char('ISBN')
+    old_edition = fields.Many2one('library.book', string='OldEdition')
+
+
+
     # func tuy chinh rec_nam cua record
     def name_get(self):
         result = []
-        for record in self:
-            rec_name = "%s (%s)" % (record.name, record.date_release)
-        result.append((record.id, rec_name))
+        for book in self:
+            authors = book.author_ids.mapped('name')
+            name = '%s (%s)' % (book.name, ', '.join(authors))
+            result.append((book.id, name))
         return result
 
     @api.constrains('date_release')
@@ -116,5 +125,125 @@ class LibraryBook(models.Model):
             ('field_id.name', '=', 'message_ids')])
         return [(x.model, x.name) for x in models]
 
+    @api.model
+    def is_allowed_transition(self, old_state, new_state):
+        allowed = [('draft', 'available'),
+               ('available', 'borrowed'),
+               ('borrowed', 'available'),
+               ('available', 'lost'),
+               ('borrowed', 'lost'),
+               ('lost', 'available')]
+        return (old_state, new_state) in allowed
+
+    def change_state(self, new_state):
+        for book in self:
+            if book.is_allowed_transition(book.state,new_state):
+                book.state = new_state
+            else:
+                continue
+
+    def make_available(self):
+        self.change_state('available')
+
+    def make_borrowed(self):
+        self.change_state('borrowed')
+
+    def make_lost(self):
+        self.change_state('lost')
+
+    def change_state(self, new_state):
+        for book in self:
+            if book.is_allowed_transition(book.state, new_state):
+                book.state = new_state
+            else:
+                msg = _('Moving from %s to %s is notallowed') % (book.state, new_state)
+                raise UserError(msg)
+
+    def log_all_library_members(self):
+    # This is an empty recordset of model library.member
+        library_member_model = self.env['library.member']
+
+        all_members = library_member_model.search([])
+        print("ALL MEMBERS:", all_members)
+        return True
+
+    def change_release_date(self):
+        self.ensure_one()
+        self.date_release = fields.Date.today()
 
 
+    """Searching for records ???"""
+    def find_book(self):
+        for record in self:
+            domain = ['|', '&', ('name', 'ilike', 'Book Name'), ('category_id.name', 'ilike', 'CategoryName'), '&',
+                  ('name', 'ilike', 'Book Name 2'), ('category_id.name', 'ilike', 'Category Name2')]
+            books = record.search(domain)
+            return True
+
+
+    """Filtering recordsets ????"""
+    @api.model
+    def books_with_multiple_authors(self, all_books): #???
+        def predicate(book):
+            if len(book.author_ids) > 1:
+                return True
+            return False
+        return all_books.filter(predicate)
+
+
+    """Traversing recordset relations ????"""
+    @api.model
+    def get_author_names(self, all_books):
+        return all_books.mapped('author_ids.city')
+
+    """Sorting recordsets ???"""
+    @api.model
+    def sort_books_by_date(self, books):
+        return books.sorted(key='release_date',reverse = True)
+
+
+
+    """Extending write() and create()"""
+    @api.model
+    def create(self, values):
+        if not self.user_has_groups('my_library.acl_book_librarian'):
+            if 'manager_remarks' in values:
+                raise UserError(
+                    'You are not allowed to modify '
+                    'manager_remarks'
+                )
+
+        return super(LibraryBook, self).create(values)
+
+    def write(self, values):
+        if not self.user_has_groups('my_library.acl_book_librarian'):
+            if 'manager_remarks' in values:
+                raise UserError(
+                    'You are not allowed to modify '
+                    'manager_remarks'
+                )
+        return super(LibraryBook, self).write(values)
+
+
+    """Customizing how records are searched"""
+    @api.model
+    def _name_search(self, name='', args=None, operator='ilike', limit=100, name_get_uid=None):
+        args = [] if args is None else args.copy()
+        for record in self:
+            if not (name == '' and operator == 'ilike'):
+                args += ['|', '|', ('name', operator, name),
+                         ('isbn', operator, name),
+                         ('author_ids.name', operator, name)
+                         ]
+        return super(LibraryBook, self)._name_search(name=name, args=args, operator=operator, limit=limit,
+                                                     name_get_uid=name_get_uid)
+    """Fetching data in groups using read_group()"""
+    #Tinh trung binh cost price cua nhung cuon sach trong the loai nay
+    @api.model
+    def _get_average_cost(self):
+        grouped_result = self.read_group(
+            [('cost_price', "!=", False)],  # Domain
+            ['category_id', 'cost_price:avg'],  # Fields to access
+            ['category_id']  # group_by
+        )
+        return grouped_result
