@@ -206,7 +206,7 @@ class LibraryBook(models.Model):
     """Extending write() and create()"""
     @api.model
     def create(self, values):
-        if not self.user_has_groups('my_library.acl_book_librarian'):
+        if not self.user_has_groups('my_library.group_librarian'):
             if 'manager_remarks' in values:
                 raise UserError(
                     'You are not allowed to modify '
@@ -216,7 +216,7 @@ class LibraryBook(models.Model):
         return super(LibraryBook, self).create(values)
 
     def write(self, values):
-        if not self.user_has_groups('my_library.acl_book_librarian'):
+        if not self.user_has_groups('my_library.group_librarian'):
             if 'manager_remarks' in values:
                 raise UserError(
                     'You are not allowed to modify '
@@ -247,3 +247,9 @@ class LibraryBook(models.Model):
             ['category_id']  # group_by
         )
         return grouped_result
+    """Invoking functions from XML files"""
+    @api.model
+    def update_book_price(self):
+        all_books = self.search([])
+        for book in all_books:
+            book.cost_price += 20
