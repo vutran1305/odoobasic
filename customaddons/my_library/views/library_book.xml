@@ -17,6 +17,9 @@
                     <button name="log_all_library_members" string="LogMembers" type="object"/>
 
                     <button name="change_release_date" string="Update Date" type="object"/>
+                    <button name="book_rent" string="Rent this book" type="object" class="btn-primary"/>
+                    <button name="average_book_occupation" string="Log Average Occ." type="object" />
+
                 </header>
 
 

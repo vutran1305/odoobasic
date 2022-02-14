@@ -2,6 +2,9 @@ from odoo import models, fields, api
 from datetime import timedelta
 from odoo.exceptions import UserError
 from odoo.tools.translate import _
+from odoo.tests.common import Form
+import logging
+_logger = logging.getLogger(__name__)
 
 class LibraryBook(models.Model):
     _name = 'library.book'
@@ -149,7 +152,10 @@ class LibraryBook(models.Model):
         self.change_state('borrowed')
 
     def make_lost(self):
-        self.change_state('lost')
+        self.ensure_one()
+        self.state = 'lost'
+        if not self.env.context.get('avoid_deactivate'):
+            self.active = False
 
     def change_state(self, new_state):
         for book in self:
@@ -253,3 +259,45 @@ class LibraryBook(models.Model):
         all_books = self.search([])
         for book in all_books:
             book.cost_price += 20
+
+    # Ng dung (ko co quyen) muon sach bang cach su dung sudo
+    def book_rent(self):
+        self.ensure_one()
+        if self.state != 'available':
+            raise UserError(_('Book is not available forrenting'))
+        rent_as_superuser = self.env['library.book.rent'].sudo()
+        rent_as_superuser.create({
+            'book_id': self.id,
+            'borrower_id': self.env.user.partner_id.id,
+        })
+
+    def average_book_occupation(self):
+        self.flush() #push all pending updates
+        sql_query = """
+                    SELECT
+                        lb.name,
+                        avg((EXTRACT(epoch from age(return_date, rent_date)) / 86400))::int
+                    FROM
+                        library_book_rent AS lbr
+                    JOIN
+                        library_book as lb ON lb.id = lbr.book_id
+                    WHERE lbr.state = 'returned'
+                    GROUP BY lb.name;"""
+        self.env.cr.execute(sql_query)
+        result = self.env.cr.fetchall()
+        print(result)
+        _logger.info("Average book occupation: %s", result)
+
+
+    """Calling onchange methods on the server side"""
+    #Ng dung (ko co quyen) tu tra sach bang cach goi thong qua wizard
+    def return_this_books(self):
+        self.ensure_one()
+        wizard = self.env['library.return.wizard']
+        with Form(wizard) as return_form:
+            return_form.borrower_id = self.env.user.partner_id
+            record = return_form.save()
+            record.books_returns()
+
+
+

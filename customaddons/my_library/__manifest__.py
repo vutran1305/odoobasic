@@ -18,6 +18,10 @@
                 'views/library_book.xml',
                 'security/groups.xml',
                 'views/library_book_categ.xml',
+                'views/library_book_rent.xml',
+                'views/settings_inherit_view.xml',
+                'wizard/library_book_rent_wizard.xml',
+                'wizard/library_book_return_wizard.xml',
               ],
     'demo': [
         'data/demo.xml',
