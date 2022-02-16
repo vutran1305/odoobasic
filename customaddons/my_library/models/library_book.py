@@ -9,7 +9,7 @@ _logger = logging.getLogger(__name__)
 class LibraryBook(models.Model):
     _name = 'library.book'
     _description = 'Library Book'  # Mo ta
-    _inherit = 'base.archive'
+    _inherit =  ['mail.thread', 'mail.activity.mixin','base.archive']
     #_order = 'date_release desc, name'  # Sap xep record , desc : giam dan
     _rec_name = 'short_name'  # Ten dai dien , vd (default) book/1 => book/short_name
     _sql_constraints = [  # Rang buoc csdl
@@ -23,9 +23,9 @@ class LibraryBook(models.Model):
     short_name = fields.Char('Short Title', translate=True, index=True)
     notes = fields.Text('Internal Notes')
     description = fields.Html('Description', sanitize=True, strip_style=False)
-    cover = fields.Binary('Book Cover')
+    cover = fields.Image('Book Cover')
     out_of_print = fields.Boolean('Out of Print?')
-    date_release = fields.Date('Release Date')
+    date_release = fields.Date('Release Date',groups='my_library.group_release_dates',)
     date_updated = fields.Datetime('Last Updated')
     pages = fields.Integer('Number of Pages',
                            groups='base.group_user',
@@ -46,6 +46,7 @@ class LibraryBook(models.Model):
                                    context={},
                                    domain=[],
                                    )
+    date_return = fields.Date('Date to return')
 
     age_days = fields.Float(
         string='Days Since Release',
@@ -74,6 +75,8 @@ class LibraryBook(models.Model):
     manager_remarks = fields.Text('Manager Remarks')
     isbn = fields.Char('ISBN')
     old_edition = fields.Many2one('library.book', string='OldEdition')
+    is_public = fields.Boolean(groups='my_library.group_library_librarian')
+    private_notes = fields.Text(groups='my_library.group_library_librarian')
 
 
 
@@ -212,7 +215,7 @@ class LibraryBook(models.Model):
     """Extending write() and create()"""
     @api.model
     def create(self, values):
-        if not self.user_has_groups('my_library.group_librarian'):
+        if not self.user_has_groups('my_library.group_librarian_librarian'):
             if 'manager_remarks' in values:
                 raise UserError(
                     'You are not allowed to modify '
@@ -222,7 +225,7 @@ class LibraryBook(models.Model):
         return super(LibraryBook, self).create(values)
 
     def write(self, values):
-        if not self.user_has_groups('my_library.group_librarian'):
+        if not self.user_has_groups('my_library.group_librarian_librarian'):
             if 'manager_remarks' in values:
                 raise UserError(
                     'You are not allowed to modify '

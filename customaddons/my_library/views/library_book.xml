@@ -6,7 +6,6 @@
         <field name="model">library.book</field>
         <field name="arch" type="xml">
             <form>
-
                 <header>
                     <button name="make_available" string="Make Available"
                             type="object"/>
@@ -15,16 +14,13 @@
                     <button name="make_lost" string="Make Lost"
                             type="object"/>
                     <button name="log_all_library_members" string="LogMembers" type="object"/>
-
                     <button name="change_release_date" string="Update Date" type="object"/>
                     <button name="book_rent" string="Rent this book" type="object" class="btn-primary"/>
                     <button name="average_book_occupation" string="Log Average Occ." type="object" />
 
                 </header>
 
-
-
-                <group>
+                <group string="Content" name="my_content">
                     <group>
                         <field name="name"/>
                         <field name="cost_price"/>
@@ -63,6 +59,158 @@
     </record>
 
 
+
+     <record id="library_book_view_kanban" model="ir.ui.view">
+        <field name="name">All book</field>
+        <field name="model">library.book</field>
+        <field name="arch" type="xml">
+            <kanban  default_group_by="date_release" group_create="false">
+                 <field name="id" />
+                <field name="name" />
+                <field name="description" />
+                <field name="cover" />
+                <field name="date_release" />
+                <field name="author_ids" />
+                <field name="state" />
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card oe_kanban_ global_click">
+                            <div class="o_kanban_image" >
+                                 <img class="o_kanban_image_inner_pic"
+                                      t-att-src="kanban_image('library.book','cover',record.id.raw_value)"/>
+                            </div>
+
+                            <a type="open">
+                                <field name="name" />
+                            </a>
+                        <ul>
+                            <li t-if="record.date_release.raw_value"><field name="date_release"/></li>
+                            <t t-if="record.author_ids.raw_value">
+                                <li t-if="!record.author_ids.raw_value"><field name="author_ids"/></li>
+                            </t>
+
+                            <li t-if="record.state.raw_value"><field name="state"/></li>
+                        </ul>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+     </record>
+
+
+    <record id="view_library_book_calendar" model="ir.ui.view">
+         <field name="model">library.book</field>
+         <field name="arch" type="xml">
+         <calendar string="Service Request"
+                 date_start="date_release"
+                 date_stop="date_updated"
+                   color="id">
+                     <field name="name" />
+                     <field name="state" />
+         </calendar>
+         </field>
+    </record>
+
+    <record id="view_library_book_graph" model="ir.ui.view">
+         <field name="model">library.book</field>
+         <field name="arch" type="xml">
+             <graph type="bar">
+                 <field name="id"/>
+                 <field name="state"/>
+             </graph>
+         </field>
+    </record>
+
+    <record id="view_library_book_pivot" model="ir.ui.view">
+         <field name="model">library.book</field>
+         <field name="arch" type="xml">
+             <pivot>
+                 <field name="name" type="row"/>
+                 <field name="author_ids" type="col"/>
+                 <field name="state" type="col"/>
+             </pivot>
+         </field>
+    </record>
+
+
+    <record model="ir.ui.view" id="simple_dashboard_view">
+       <field name="name">Simple Dashboard</field>
+       <field name="model">library.book</field>
+       <field name="type">form</field>
+       <field name="arch" type="xml">
+
+               <form string="My Dashboard">
+               <dashboard >
+                   <view ref="view_library_book_graph" type="graph" />
+                   <view ref="view_library_book_pivot" type="pivot"/>
+
+               </dashboard>
+           </form>
+
+       </field>
+   </record>
+
+    <record id="view_book_gantt" model="ir.ui.view">
+         <field name="name">Book gantt</field>
+         <field name="model">library.book</field>
+         <field name="arch" type="xml">
+             <gantt date_start="date_release" date_stop="date_updated" string="Tasks"
+                    default_group_by="state"  color="id"  >
+                 <field name="name"/>
+                 <field name="state"/>
+                     <templates>
+                       <div t-name="gantt-popover" class="container-fluid">
+                           <div class="row no-gutters">
+                               <div class="col">
+                                   <ul class="pl-1 mb-0">
+                                       <li>
+                                           <strong>Start Date:</strong>
+                                           <t t-esc="userTimezoneStartDate.format('YYYY-MM-DD')"/>
+                                       </li>
+                                       <li>
+                                           <strong>Stop Date:</strong>
+                                           <t t-esc="date_to.format('YYYY-MM-DD')"/>
+                                       </li>
+                                   </ul>
+                               </div>
+                           </div>
+                       </div>
+                    </templates>
+             </gantt>
+         </field>
+    </record>
+
+
+    <record id="view_book_activity" model="ir.ui.view">
+         <field name="name">Book activity</field>
+         <field name="model">library.book</field>
+         <field name="arch" type="xml">
+             <activity string="Tasks">
+                 <templates>
+                 <div t-name="activity-box">
+                 <div>
+                 <field name="name" display="full"/>
+                 <field name="id" muted="1" display="full"/>
+                 </div>
+                 </div>
+                 </templates>
+             </activity>
+         </field>
+    </record>
+
+
+<!--    <record id="view_book_map" model="ir.ui.view">-->
+<!--         <field name="name">Book map</field>-->
+<!--         <field name="model">library.book</field>-->
+<!--         <field name="arch" type="xml">-->
+<!--             <map res_partner="currency_id">-->
+
+<!--             </map>-->
+<!--         </field>-->
+<!--    </record>-->
+
+
     <record id="library_book_view_tree" model="ir.ui.view">
         <field name="name">Library Book List</field>
         <field name="model">library.book</field>
@@ -90,13 +238,22 @@
     </record>
 
 
+
+
     <record id='library_book_action' model='ir.actions.act_window'>
         <field name="name">Library Books</field>
         <field name="res_model">library.book</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">gantt,tree,pivot,graph,calendar,kanban,activity,form</field>
     </record>
+
+
+
+
+
 
     <menuitem name="My Library" id="library_base_menu"/>
     <menuitem name="Books" id="library_book_menu"
               parent="library_base_menu" action="library_book_action"/>
+
+
 </odoo>
