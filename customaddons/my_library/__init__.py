@@ -1,6 +1,6 @@
 from . import models
 from . import wizard
-
+from . import controllers
 
 from odoo import api, fields, SUPERUSER_ID
 

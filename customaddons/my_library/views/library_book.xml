@@ -22,6 +22,7 @@
 
                 <group string="Content" name="my_content">
                     <group>
+                        <field name="id"/>
                         <field name="name"/>
                         <field name="cost_price"/>
                         <field name="author_ids" widget="many2many_tags"/>
